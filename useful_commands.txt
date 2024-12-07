@@ -1,0 +1,18 @@
+
+# To build the image, from src directory.
+podman kill whisper-server ; podman rm whisper-server ; podman build -t whisper-server-template .
+
+# To run the server, from src directory.
+podman run -d \
+        --name whisper-server \
+        -v $PWD/server.py:/src/dictation/server.py:Z \
+        -p 8009:5000 \
+        --security-opt seccomp=unconfined \
+        --ipc=host \
+        --group-add keep-groups \
+        --device=/dev/dri \
+        --device=/dev/accel/accel0 \
+        whisper-server-template
+
+# To transcribe a file, from src directory.
+curl --data-binary @courtroom.wav -X POST 127.0.0.1:8009/transcribe
