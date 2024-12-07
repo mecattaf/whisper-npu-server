@@ -1,8 +1,7 @@
-
 # To build the image, from src directory.
-podman kill whisper-server ; podman rm whisper-server ; podman build -t whisper-server-template .
+podman kill whisper-server ; podman rm whisper-server ; podman build -t whisper-server-image .
 
-# To run the server, from src directory.
+# To run the server in development mode (map the server.py file into the container so flask can watch for changes)
 podman run -d \
         --name whisper-server \
         -v $PWD/server.py:/src/dictation/server.py:Z \
@@ -12,7 +11,23 @@ podman run -d \
         --group-add keep-groups \
         --device=/dev/dri \
         --device=/dev/accel/accel0 \
-        whisper-server-template
+        whisper-server-image
 
-# To transcribe a file, from src directory.
+# To run the server in "release" mode (caveat emptor: Flask still claims it's not a production-ready server).
+podman run -d \
+        --name whisper-server \
+        -p 8009:5000 \
+        --security-opt seccomp=unconfined \
+        --ipc=host \
+        --group-add keep-groups \
+        --device=/dev/dri \
+        --device=/dev/accel/accel0 \
+        whisper-server-image
+
+# Transcribe a file.
 curl --data-binary @courtroom.wav -X POST 127.0.0.1:8009/transcribe
+
+# Generate and enable a systemd unit for the container above.
+podman generate systemd whisper-server > $HOME/.config/systemd/user/whisper-server.service
+systemctl --user daemon-reload
+systemctl --user enable whisper-server.service

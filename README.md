@@ -1,0 +1,7 @@
+## whisper-npu-server
+
+This is a working example of using an Intel NPU to transcribe speech with a whisper model. It runs in a rootless podman container for convenience. Performance is very good on my ThinkPad T14 Gen 5 with a 155U.
+
+I use it in combination with a sway configuration and small wrapper program that will record speech when I hold a global hotkey down and then transcribe it and type it out into a Wayland window. In the future I'm thinking about maybe integrating it with a language model so that it can behave more like a voice typing program on a phone. On a phone you can say, "hello there exclamation point" and it will use the actual punctuation that you specified instead of typing out the words exclamation point. Language models should be able to deal with that no problem.
+
+The real-time factor is roughly 20x with whisper-small, meaning it can transcribe 20 times faster than I can speak. In practice, what this means is that I say a sentence, release the hotkey, correct errors and move on to the next sentence. There's very little friction involved. Perhaps the more exciting thing than the speed is that it uses the NPU instead of the CPU, so it's much more power efficient. Overall, I'm pretty happy with how it turned out. I'm finding that it lets me use a computer when I really don't want to. I can just lounge around, hold the hotkey, talk, release it, and then move on with my life.
