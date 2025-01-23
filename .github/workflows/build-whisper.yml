@@ -23,7 +23,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-      id-token: write    # Required for keyless signing
+      id-token: write
     
     steps:
       - name: Checkout Repository
@@ -53,16 +53,23 @@ jobs:
             org.opencontainers.image.source=${{ github.event.repository.html_url }}
             org.opencontainers.image.revision=${{ github.sha }}
 
-      # Install cosign
       - name: Install cosign
         if: github.event_name != 'pull_request'
         uses: sigstore/cosign-installer@v3.7.0
 
-      # Keyless signing with automatic acceptance
       - name: Sign the container image
         if: github.event_name != 'pull_request'
         env:
-          COSIGN_EXPERIMENTAL: 1  # Enable keyless signing
-          COSIGN_YES: 1          # Automatically accept prompts
+          COSIGN_EXPERIMENTAL: "1"
+          COSIGN_YES: "true"
+          COSIGN_TUF_ROOT: "/tmp/cosign-root"
+          COSIGN_REPOSITORY: "ghcr.io/mecattaf/whisper-npu-server"
         run: |
-          cosign sign --yes ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build_and_push.outputs.digest }}
+          # Ensure the TUF root exists
+          mkdir -p /tmp/cosign-root
+          
+          # Use expect-like behavior to automatically handle the prompt
+          echo "y" | cosign sign --yes \
+            --force \
+            --tlog-upload=true \
+            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build_and_push.outputs.digest }}
