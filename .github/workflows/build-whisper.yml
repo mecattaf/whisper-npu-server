@@ -58,10 +58,11 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: sigstore/cosign-installer@v3.7.0
 
-      # Keyless signing
+      # Keyless signing with automatic acceptance
       - name: Sign the container image
         if: github.event_name != 'pull_request'
         env:
           COSIGN_EXPERIMENTAL: 1  # Enable keyless signing
+          COSIGN_YES: 1          # Automatically accept prompts
         run: |
-          cosign sign ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build_and_push.outputs.digest }}
+          cosign sign --yes ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build_and_push.outputs.digest }}
