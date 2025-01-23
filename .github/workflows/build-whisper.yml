@@ -1,0 +1,67 @@
+name: Build Whisper NPU Server
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+  pull_request:
+    branches:
+      - main
+
+env:
+  IMAGE_NAME: whisper-npu-server
+  IMAGE_REGISTRY: ghcr.io/mecattaf
+
+jobs:
+  build-and-push:
+    name: Build and Push Image
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      packages: write
+      id-token: write    # Required for keyless signing
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push
+        id: build_and_push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.event.repository.html_url }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      # Install cosign
+      - name: Install cosign
+        if: github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@v3.7.0
+
+      # Keyless signing
+      - name: Sign the container image
+        if: github.event_name != 'pull_request'
+        env:
+          COSIGN_EXPERIMENTAL: 1  # Enable keyless signing
+        run: |
+          cosign sign ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build_and_push.outputs.digest }}

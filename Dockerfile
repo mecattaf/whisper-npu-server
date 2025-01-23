@@ -21,10 +21,6 @@ RUN wget https://github.com/intel/linux-npu-driver/releases/download/v1.10.0/int
     dpkg -i *.deb && \
     rm -rf /var/lib/apt/lists/*
 
-FROM drivers as builder
-
-RUN mkdir /models && optimum-cli export openvino --model openai/whisper-small /models
-
 FROM drivers
 
 WORKDIR /src/dictation
@@ -37,9 +33,10 @@ COPY . /src/dictation
 
 WORKDIR /src/dictation
 
-# Copy models
-COPY --from=builder /models /models
+# Models will be mounted from user's home directory
+VOLUME /root/.whisper/models
 
 EXPOSE 5000
 
 CMD ["python", "server.py"]
+
