@@ -57,19 +57,11 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: sigstore/cosign-installer@v3.7.0
 
-      - name: Sign the container image
+      - name: Sign container image
         if: github.event_name != 'pull_request'
-        env:
-          COSIGN_EXPERIMENTAL: "1"
-          COSIGN_YES: "true"
-          COSIGN_TUF_ROOT: "/tmp/cosign-root"
-          COSIGN_REPOSITORY: "ghcr.io/mecattaf/whisper-npu-server"
         run: |
-          # Ensure the TUF root exists
-          mkdir -p /tmp/cosign-root
-          
-          # Use expect-like behavior to automatically handle the prompt
-          echo "y" | cosign sign --yes \
-            --force \
-            --tlog-upload=true \
-            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build_and_push.outputs.digest }}
+          cosign sign -y --key env://COSIGN_PRIVATE_KEY ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}@${TAGS}
+        env:
+          TAGS: ${{ steps.build_and_push.outputs.digest }}
+          COSIGN_EXPERIMENTAL: false
+          COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
