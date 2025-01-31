@@ -36,12 +36,16 @@ The server uses a user-specific directory structure for model storage, making it
 ```bash
 # Create the whisper directory structure (server will also create this automatically)
 mkdir -p ~/.whisper/models
-
-# Download and extract pre-converted models
 cd ~/.whisper/models
-wget <models-url> -O models.tar.gz
-tar xzf models.tar.gz
-rm models.tar.gz
+```
+
+```fish
+for model in whisper-medium.en whisper-small.en whisper-base.en whisper-tiny.en whisper-large-v3 whisper-small whisper-base whisper-tiny
+    GIT_LFS_SKIP_SMUDGE=1 git clone https://huggingface.co/mecattaf/$model
+    cd $model
+    git lfs pull
+    cd ..
+end
 ```
 
 ## Container Management
