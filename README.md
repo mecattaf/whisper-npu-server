@@ -52,12 +52,11 @@ end
 
 ```bash
 # Build the container
-podman build -t whisper-server-image .
+podman pull ghcr.io/mecattaf/whisper-npu-server:latest
 
 # Run in development mode
 podman run -d \
     --name whisper-server \
-    -v $PWD/server.py:/src/dictation/server.py:Z \
     -v $HOME/.whisper/models:/root/.whisper/models:Z \
     -p 8009:5000 \
     --security-opt seccomp=unconfined \
@@ -65,7 +64,7 @@ podman run -d \
     --group-add keep-groups \
     --device=/dev/dri \
     --device=/dev/accel/accel0 \
-    whisper-server-image
+    ghcr.io/mecattaf/whisper-npu-server:latest
 
 # Simple transcription test
 curl --data-binary @audio.wav -X POST http://localhost:8009/transcribe
@@ -99,6 +98,54 @@ Error response:
     "error": "error description here"
 }
 ```
+
+## Testing and Debugging
+
+When running the server for the first time, the initial model loading may take longer as the NPU initializes. To test the setup and verify NPU functionality:
+
+```bash
+# Test model loading and transcription directly
+cd ~/mecattaf/whisper-npu-server/
+podman run -it --rm \
+    -v $HOME/.whisper/models:/root/.whisper/models:Z \
+    -v $PWD:/src/dictation:Z \
+    --security-opt seccomp=unconfined \
+    --ipc=host \
+    --device=/dev/dri \
+    --device=/dev/accel/accel0 \
+    ghcr.io/mecattaf/whisper-npu-server:latest \
+    python3 -c "
+import openvino_genai
+import librosa
+import os
+
+print('Starting test...')
+print('Loading model...')
+model_path = os.path.join('/root/.whisper/models', 'whisper-medium.en')
+pipeline = openvino_genai.WhisperPipeline(str(model_path), device='NPU')
+print('Model loaded!')
+
+print('Loading audio...')
+audio_path = '/src/dictation/courtroom.wav'
+speech, _ = librosa.load(audio_path, sr=16000)
+print('Audio loaded!')
+
+print('Generating transcription...')
+result = pipeline.generate(speech)
+print('Transcription result:', result)
+"
+Note: The first time you load a model, it may take 30-60 seconds as the NPU initializes. Subsequent loads should be faster. Each model needs to be initialized separately the first time it's used.
+For real-time transcription testing after server startup:
+```
+
+# List available models
+curl http://localhost:8009/models
+
+# Test transcription with default model (whisper-medium.en)
+curl --data-binary @audio.wav -X POST http://localhost:8009/transcribe
+
+# Test transcription with specific model
+curl --data-binary @audio.wav -X POST http://localhost:8009/transcribe/whisper-medium.en
 
 ## Acknowledgments
 
