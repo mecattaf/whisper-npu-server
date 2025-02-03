@@ -16,7 +16,7 @@ class ModelManager:
         self.whisper_dir = os.path.join(self.user_home, '.whisper')
         self.models_dir = os.path.join(self.whisper_dir, 'models')
         self.pipelines = {}
-        self.default_model = "whisper-medium.en"
+        self.default_model = "whisper-small"
         
         os.makedirs(self.models_dir, exist_ok=True)
         
