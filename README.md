@@ -2,33 +2,6 @@
 
 A high-performance speech transcription server leveraging Intel NPU acceleration. This fork extends the original project with enhanced organization, error handling, and user-specific model management.
 
-## Hardware Requirements
-
-Tested and optimized for the ASUS Zenbook DUO UX8406 with Intel® Core™ Ultra 9 185H processor. The server utilizes the integrated Intel NPU for efficient model inference.
-
-## Features
-
-The server provides real-time speech transcription using OpenVINO-optimized Whisper models. It automatically manages model storage in the user's home directory, making it easy to persist models across container rebuilds and system updates. The implementation focuses on simplicity and reliability, with comprehensive error handling and logging.
-
-## Models
-
-The server stores models in `~/.whisper/models/` in your home directory. This location is automatically created when the server starts. The server supports various Whisper models including:
-
-whisper-tiny.en through whisper-large-v3 models are supported, with whisper-medium.en being the default choice. The complete model list includes both English-specific and multilingual variants:
-
-For English-only use:
-- whisper-tiny.en (fastest)
-- whisper-base.en
-- whisper-small.en
-- whisper-medium.en (default, recommended)
-
-For multilingual support:
-- whisper-tiny
-- whisper-base
-- whisper-small
-- whisper-medium
-- whisper-large-v3
-
 ## Setup
 
 The server uses a user-specific directory structure for model storage, making it particularly suitable for Fedora Silverblue's immutable nature:
@@ -70,6 +43,53 @@ podman run -d \
 curl --data-binary @audio.wav -X POST http://localhost:8009/transcribe
 ```
 
+## First-Time Model Initialization
+
+Before running the server, it's recommended to initialize all models first. This one-time process may take several minutes as each model needs to be loaded into the NPU:
+
+```bash
+cd ~/mecattaf/whisper-npu-server/ && \
+podman run -it --rm \
+    -v $HOME/.whisper/models:/root/.whisper/models:Z \
+    -v $PWD:/src/dictation:Z \
+    --security-opt seccomp=unconfined \
+    --ipc=host \
+    --device=/dev/dri \
+    --device=/dev/accel/accel0 \
+    ghcr.io/mecattaf/whisper-npu-server:latest \
+    python3 -c "
+import openvino_genai
+import librosa
+import os
+
+models = ['whisper-tiny.en', 'whisper-base.en', 'whisper-small.en', 
+          'whisper-medium.en', 'whisper-tiny', 'whisper-base', 
+          'whisper-small', 'whisper-medium', 'whisper-large-v3']
+
+audio_path = '/src/dictation/courtroom.wav'
+speech, _ = librosa.load(audio_path, sr=16000)
+
+for model_name in models:
+    try:
+        print(f'\n=== Testing {model_name} ===')
+        model_path = os.path.join('/root/.whisper/models', model_name)
+        print('Loading model...')
+        pipeline = openvino_genai.WhisperPipeline(str(model_path), device='NPU')
+        print('Model loaded!')
+        print('Generating transcription...')
+        result = pipeline.generate(speech)
+        print(f'Transcription result for {model_name}:', result)
+    except Exception as e:
+        print(f'Error with {model_name}:', str(e))
+"
+```
+This command will:
+- Load each available model into the NPU
+- Test transcription with each model using a sample audio file
+- Report success or any errors for each model
+
+The first-time initialization is important as it ensures all models are properly loaded and functional. Subsequent model loads will be faster once they've been initialized.
+
 ## Systemd Integration
 
 The server can be automatically started using systemd user services, making it readily available for desktop integration with tools like Sway:
@@ -80,6 +100,43 @@ podman generate systemd whisper-server > $HOME/.config/systemd/user/whisper-serv
 systemctl --user daemon-reload
 systemctl --user enable whisper-server.service
 ```
+
+## Starting the service if using `mecattaf/dots-zen`
+
+The systemd service will already be present in dotfiles so we will just have to run:
+```bash
+systemctl --user daemon-reload
+systemctl --user enable --now container-whisper-npu
+```
+This will enable the service, which can now be started by swaywm automatically on boot.
+
+## Hardware Requirements
+
+Tested and optimized for the ASUS Zenbook DUO UX8406 with Intel® Core™ Ultra 9 185H processor. The server utilizes the integrated Intel NPU for efficient model inference.
+
+## Features
+
+The server provides real-time speech transcription using OpenVINO-optimized Whisper models. It automatically manages model storage in the user's home directory, making it easy to persist models across container rebuilds and system updates. The implementation focuses on simplicity and reliability, with comprehensive error handling and logging.
+
+## Models
+
+The server stores models in `~/.whisper/models/` in your home directory. This location is automatically created when the server starts. The server supports various Whisper models including:
+
+whisper-tiny.en through whisper-large-v3 models are supported, with whisper-medium.en being the default choice. The complete model list includes both English-specific and multilingual variants:
+
+For English-only use:
+- whisper-tiny.en (fastest)
+- whisper-base.en
+- whisper-small.en
+- whisper-medium.en (default, recommended)
+
+For multilingual support:
+- whisper-tiny
+- whisper-base
+- whisper-small
+- whisper-medium
+- whisper-large-v3
+``
 
 ## API Response Format
 
